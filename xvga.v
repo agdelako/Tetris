@@ -151,7 +151,7 @@ module xvga(
 
 
 	//assign pixel = 8'hBB;//final_pixels;
-	assign final = pixel | pixel_grid;
+	assign final = pixel_grid | pixel;
 	assign VGA_R = final[7:5];
 	assign VGA_G = final[4:2];
 	assign VGA_B = final[1:0];

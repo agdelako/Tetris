@@ -26,8 +26,8 @@ module BlockMovement(
 				y_in,
 				done,
 				game_over,
-				block_x,
-				block_y,
+				//block_x,
+				//block_y,
 				frame_pixel	
 );
 
@@ -49,8 +49,8 @@ module BlockMovement(
 	input 	[9:0]			y_in;
 	output						done;
 	output						game_over;
-	output 	[10:0] 	 	block_x;
-	output 	[9:0]			block_y;
+	//output 	[10:0] 	 	block_x;
+	//output 	[9:0]			block_y;
 	output	[7:0] 	  frame_pixel;
    
 // ====================================================================================
@@ -61,9 +61,10 @@ module BlockMovement(
 								
 	integer				i;
 	integer				j;
+	integer				k;
 	
-	reg 	[10:0]  block_x;
-	reg 	[9:0]		block_y;
+	//reg 	[10:0]  block_x;
+	//reg 	[9:0]		block_y;
 	reg		[8:0]		first;
 	reg		[8:0]		sec;
 	reg		[8:0]		third;
@@ -72,11 +73,12 @@ module BlockMovement(
 	reg		[8:0]		diff_s;
 	reg		[8:0]		saddr;
 	reg		[7:0]		frame_pixel;
-	reg		[4:0]		v_x;
-	reg		[4:0]		v_y;
+	//reg		[4:0]		v_x;
+	//reg		[4:0]		v_y;
 	reg		[2:0]		CollisionBuf[367:0];
 	reg						done;
 	reg						game_over;
+	reg						filled;
 	
 //  ===================================================================================
 // 							  				Implementation
@@ -86,18 +88,19 @@ module BlockMovement(
 	begin
 		if (rst)
 		begin
-			block_x = x_in;
-			block_y = y_in;
+			//block_x = x_in;
+			//block_y = y_in;
+			filled = 1'b0;
 			done = 1'b0;
 			game_over = 1'b0;
 			diff_d = 9'b0;
 			diff_s = 9'b0;
-			v_x = 5'd26;
-			v_y = 5'd26;
-			first = 9'd8;
-			sec = 9'd9;
-			third = 9'd23;
-			fourth = 9'd24;			
+			//v_x = 5'd26;
+			//v_y = 5'd26;
+			first = 9'd0;
+			sec = 9'd0;
+			third = 9'd0;
+			fourth = 9'd0;			
 			/*first1 = 9'd8;
 			sec1 = 9'd9;
 			third1 = 9'd23;
@@ -120,21 +123,23 @@ module BlockMovement(
 			begin
 				if (frame)
 				begin
-					if (DOWN && !CollisionBuf[sec+32] && !CollisionBuf[third+32] && !CollisionBuf[fourth+32]) //block_y >= 485 && block_y < 521
+					if (DOWN && ((!CollisionBuf[sec+32] && !CollisionBuf[third+32] && !CollisionBuf[fourth+32]) || //block_y >= 485 && block_y < 521
+											(!CollisionBuf[third+32] && !CollisionBuf[fourth+32])))
 					begin
-						block_y = block_y + v_y + v_y;
 						done = 1'b0;
 						diff_d = 9'd32;
+						//block_y = block_y + v_y + v_y;
 						//first = first + 9'd32;
 						//sec = sec + 9'd32;
 						//third = third + 9'd32;
 						//fourth = fourth + 9'd32;
 					end
-					else if (!CollisionBuf[sec+16] && !CollisionBuf[third+16] && !CollisionBuf[fourth+16]) // block_y < 521
+					else if ((!CollisionBuf[sec+16] && !CollisionBuf[third+16] && !CollisionBuf[fourth+16]) || // block_y < 521
+									(!CollisionBuf[third+16] && !CollisionBuf[fourth+16]))
 					begin	
-						block_y = block_y + v_y;
 						done = 1'b0;
 						diff_d = 9'd16;
+						//block_y = block_y + v_y;
 						//first = first + 9'd16;
 						//sec = sec + 9'd16;
 						//third = third + 9'd16;
@@ -143,11 +148,11 @@ module BlockMovement(
 					else
 					begin
 						diff_d = 9'd0;
-						block_y = block_y;
+						/*block_y = block_y;
 						if (block_x == x_in && block_y == y_in) //detect game over
 							game_over = 1'b1;
 						else
-							game_over = 1'b0;
+							game_over = 1'b0;*/
 							
 						if (vsync)//keep done up for a whole scan
 							done = 1'b0;
@@ -157,9 +162,9 @@ module BlockMovement(
 					
 					if (LEFT && !CollisionBuf[first-1] && !CollisionBuf[third-1]) // block_x >= 130
 					begin
-						block_x = block_x - v_x;
 						done = 1'b0;
 						diff_s = -9'd1;
+						//block_x = block_x - v_x;
 						//first = first - 9'd1;
 						//sec = sec - 9'd1;
 						//third = third - 9'd1;
@@ -167,9 +172,9 @@ module BlockMovement(
 					end
 					else if (RIGHT && !CollisionBuf[sec+1] && !CollisionBuf[fourth+1]) // block_x <= 364
 					begin
-						block_x = block_x + v_x;
 						done = 1'b0;
 						diff_s = 9'd1;
+						//block_x = block_x + v_x;
 						//first = first + 9'd1;
 						//sec = sec + 9'd1;
 						//third = third + 9'd1;
@@ -194,19 +199,39 @@ module BlockMovement(
 					CollisionBuf[sec] = 3'b001;
 					CollisionBuf[third] = 3'b001;
 					CollisionBuf[fourth] = 3'b001;
+					
+					for (i = 0; i < 22; i = i + 1)			//detect filled lines
+					begin
+						filled = 1'b1;
+						for (j = 1; j < 15; j = j + 1)
+						begin
+							if (!CollisionBuf[j + i*16]) 
+								filled = 1'b0;
+						end
+						if (filled)
+						begin
+							for (k <= i; k = 1; k = k - 1)
+							begin
+								for (j = 1; j < 15; j = j + 1)
+								begin
+									CollisionBuf[j + k*16] = CollisionBuf[j + (k-1)*16];
+								end
+							end
+						end
+					end
 				end
 			end
 			
 			if (new_block)
 			begin
 				done = 1'b0;
-				v_x = 5'd26;
+				/*v_x = 5'd26;
 				block_x = x_in;
-				block_y = y_in;
+				block_y = y_in;*/
 				first = 9'd8;
 				sec = 9'd9;
-				third = 9'd23;
-				fourth = 9'd24;
+				third = 9'd24;
+				fourth = 9'd25;
 			end
 		end
 	end

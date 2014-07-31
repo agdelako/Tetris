@@ -65,8 +65,8 @@ module Game_Logic (
 	reg						new_block;
 	
 	
-	wire 	[10:0]  block_x;
-	wire 	[9:0]		block_y;
+	//wire 	[10:0]  block_x;
+	//wire 	[9:0]		block_y;
 	wire	[10:0]	hcount;
 	wire	[9:0]		vcount;
 	wire 	[7:0]		pixel11;
@@ -177,7 +177,7 @@ module Game_Logic (
 			.hcount(hcount),
 			.vcount(vcount),
 			.pixel11(pixel11)
-	);*/
+	);
 	
 	DrawBlock21 blue(
 			.vclk(vclk),
@@ -225,7 +225,7 @@ module Game_Logic (
 			.hcount(hcount),
 			.vcount(vcount),
 			.pixel71(pixel71)
-	);
+	);*/
 	
 	//-------------------------------------------------------------------------
 	//		 							Calculate movement
@@ -247,8 +247,8 @@ module Game_Logic (
 			.y_in(y_in),
 			.done(done),
 			.game_over(game_over),
-			.block_x(block_x),
-			.block_y(block_y),
+			//.block_x(block_x),
+			//.block_y(block_y),
 			.frame_pixel(frame_pixel)			
 	);
 	
