@@ -44,8 +44,8 @@ module Game_Logic (
 // ====================================================================================	
 	/* State encoding */
 	parameter			Start = 2'b00,
-								State_1 = 2'b01,
-								State_2 = 2'b10,
+								Play = 2'b01,
+								DisplayChanges = 2'b10,
 								GameOver = 2'b11;
 							
 	parameter			X = 259,  // default X & Y
@@ -127,14 +127,14 @@ module Game_Logic (
 						NextState = State_1;
 					end
 				end
-			State_1 :
+			Play :
 				begin
 					move = 1'b1;
 					pixel =  pixel | pixel_board | frame_pixel ;//| pixel11;
 					if (done)
 						NextState = State_2;
 				end
-			State_2 :
+			DisplayChanges :
 				begin
 					show = 1'b1;
 					pixel = pixel_board | frame_pixel ;//| pixel11 | pixel21 | pixel31 | pixel41| pixel51 | pixel61 | pixel71;

@@ -75,7 +75,9 @@ module BlockMovement(
 	reg		[7:0]		frame_pixel;
 	//reg		[4:0]		v_x;
 	//reg		[4:0]		v_y;
+	reg		[4:0]		row;
 	reg		[2:0]		CollisionBuf[367:0];
+	reg						FilledRows[21:1];
 	reg						done;
 	reg						game_over;
 	reg						filled;
@@ -115,6 +117,11 @@ module BlockMovement(
 						CollisionBuf[i*16 + j] = 3'b111;
 					else
 						CollisionBuf[i*16 + j] = 3'b000;
+			end
+			
+			for (i = 1; i < 22; i = i + 1)
+			begin
+				FilledRows[i] = 1'b0;
 			end
 		end
 		else
@@ -200,25 +207,46 @@ module BlockMovement(
 					CollisionBuf[third] = 3'b001;
 					CollisionBuf[fourth] = 3'b001;
 					
-					for (i = 0; i < 22; i = i + 1)			//detect filled lines
+					if (done)
 					begin
-						filled = 1'b1;
-						for (j = 1; j < 15; j = j + 1)
+						for (i = 1; i < 22; i = i + 1)			//detect filled lines
 						begin
-							if (!CollisionBuf[j + i*16]) 
-								filled = 1'b0;
-						end
-						if (filled)
+							filled = 1'b1;
+							for (j = 1; j < 15; j = j + 1)
+							begin
+								if (!CollisionBuf[j + i*16]) 
+									filled = 1'b0;
+							end
+							
+							if (filled)
+							begin
+								FilledRows[i] = 1'b1;
+							end
+						end//for i
+						
+						for (i = 2; i < 22; i = i + 1)		
 						begin
-							for (k <= i; k = 1; k = k - 1)
+							if (FilledRows[i])
 							begin
 								for (j = 1; j < 15; j = j + 1)
 								begin
-									CollisionBuf[j + k*16] = CollisionBuf[j + (k-1)*16];
+									CollisionBuf[j + i*16] = CollisionBuf[j + (i-1)*16];
 								end
+								
+								/*if (i == 1)
+								begin
+									FilledRows[i] = 1'b0;
+								end
+								else
+								begin*/
+									FilledRows[i-1] = 1'b1;
+									FilledRows[i] = 1'b0;
+								//end
 							end
 						end
-					end
+					end//if done
+					
+					
 				end
 			end
 			
