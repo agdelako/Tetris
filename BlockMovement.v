@@ -25,6 +25,7 @@ module BlockMovement(
 				x_in,
 				y_in,
 				done,
+				check,
 				game_over,
 				//block_x,
 				//block_y,
@@ -48,6 +49,7 @@ module BlockMovement(
 	input 	[10:0]  	x_in;
 	input 	[9:0]			y_in;
 	output						done;
+	output						check;
 	output						game_over;
 	//output 	[10:0] 	 	block_x;
 	//output 	[9:0]			block_y;
@@ -59,26 +61,48 @@ module BlockMovement(
 	//parameter			X = 260,  // default X & Y
 								//Y = 17;
 								
+	/* State encoding */
+	parameter			Start = 3'b000,
+								Idle = 3'b001,
+								BlockMove = 3'b010,
+								DetectLines = 3'b011,
+								CheckRows = 3'b100,
+								DeleteRow = 3'b101;
+								
 	integer				i;
 	integer				j;
 	integer				k;
 	
 	//reg 	[10:0]  block_x;
 	//reg 	[9:0]		block_y;
+	//reg		[4:0]		v_x;
+	//reg		[4:0]		v_y;
 	reg		[8:0]		first;
 	reg		[8:0]		sec;
 	reg		[8:0]		third;
 	reg		[8:0]		fourth;	
+	reg		[8:0]		first_new;
+	reg		[8:0]		sec_new;
+	reg		[8:0]		third_new;
+	reg		[8:0]		fourth_new;	
 	reg		[8:0]		diff_d;
 	reg		[8:0]		diff_s;
 	reg		[8:0]		saddr;
 	reg		[7:0]		frame_pixel;
-	//reg		[4:0]		v_x;
-	//reg		[4:0]		v_y;
+	reg		[4:0]		new_d_row;
+	reg		[4:0]		del_row;
+	reg		[4:0]		new_row;
 	reg		[4:0]		row;
+	reg		[3:0]		new_col;
+	reg		[3:0]		col;
 	reg		[2:0]		CollisionBuf[367:0];
-	reg						FilledRows[21:1];
+	reg		[2:0]		CollisionBuf_new[367:0];
+	reg		[2:0]		NextState;
+	reg		[2:0]		State;
+	reg						FilledRows[21:0];
+	reg						FilledRows_new[21:0];
 	reg						done;
+	reg						check;
 	reg						game_over;
 	reg						filled;
 	
@@ -86,28 +110,19 @@ module BlockMovement(
 // 							  				Implementation
 //  ===================================================================================	
 
+	/* State registers */
 	always @(posedge vclk or posedge rst)
 	begin
 		if (rst)
 		begin
-			//block_x = x_in;
-			//block_y = y_in;
-			filled = 1'b0;
-			done = 1'b0;
-			game_over = 1'b0;
-			diff_d = 9'b0;
-			diff_s = 9'b0;
-			//v_x = 5'd26;
-			//v_y = 5'd26;
+			State = Start;
 			first = 9'd0;
 			sec = 9'd0;
 			third = 9'd0;
-			fourth = 9'd0;			
-			/*first1 = 9'd8;
-			sec1 = 9'd9;
-			third1 = 9'd23;
-			fourth1 = 9'd24;*/
-			
+			fourth = 9'd0;
+			del_row = 5'd0;
+			row = 5'd0;
+			col = 4'd1;
 			for (i = 0; i < 23; i = i + 1)
 			begin
 				CollisionBuf[i*16] = 1'b1;
@@ -118,150 +133,266 @@ module BlockMovement(
 					else
 						CollisionBuf[i*16 + j] = 3'b000;
 			end
-			
-			for (i = 1; i < 22; i = i + 1)
-			begin
-				FilledRows[i] = 1'b0;
-			end
+			for (k = 0; k < 22; k = k + 1)
+				FilledRows[k] = 1'b0;
 		end
 		else
 		begin
-			if (move)
-			begin
-				if (frame)
-				begin
-					if (DOWN && ((!CollisionBuf[sec+32] && !CollisionBuf[third+32] && !CollisionBuf[fourth+32]) || //block_y >= 485 && block_y < 521
-											(!CollisionBuf[third+32] && !CollisionBuf[fourth+32])))
-					begin
-						done = 1'b0;
-						diff_d = 9'd32;
-						//block_y = block_y + v_y + v_y;
-						//first = first + 9'd32;
-						//sec = sec + 9'd32;
-						//third = third + 9'd32;
-						//fourth = fourth + 9'd32;
-					end
-					else if ((!CollisionBuf[sec+16] && !CollisionBuf[third+16] && !CollisionBuf[fourth+16]) || // block_y < 521
-									(!CollisionBuf[third+16] && !CollisionBuf[fourth+16]))
-					begin	
-						done = 1'b0;
-						diff_d = 9'd16;
-						//block_y = block_y + v_y;
-						//first = first + 9'd16;
-						//sec = sec + 9'd16;
-						//third = third + 9'd16;
-						//fourth = fourth + 9'd16;
-					end
-					else
-					begin
-						diff_d = 9'd0;
-						/*block_y = block_y;
-						if (block_x == x_in && block_y == y_in) //detect game over
-							game_over = 1'b1;
-						else
-							game_over = 1'b0;*/
-							
-						if (vsync)//keep done up for a whole scan
-							done = 1'b0;
-						else
-							done = 1'b1;
-					end
+			State = NextState;	
+			first = first_new;
+			sec = sec_new;
+			third = third_new;
+			fourth = fourth_new;
+			del_row = new_d_row;
+			row = new_row;
+			col = new_col;
+			for (i = 0; i < 23; i = i + 1)
+				for (j = 0; j < 16; j = j + 1)
+					CollisionBuf[i*16 + j] = CollisionBuf_new[i*16 + j];
 					
-					if (LEFT && !CollisionBuf[first-1] && !CollisionBuf[third-1]) // block_x >= 130
-					begin
-						done = 1'b0;
-						diff_s = -9'd1;
-						//block_x = block_x - v_x;
-						//first = first - 9'd1;
-						//sec = sec - 9'd1;
-						//third = third - 9'd1;
-						//fourth = fourth - 9'd1;
-					end
-					else if (RIGHT && !CollisionBuf[sec+1] && !CollisionBuf[fourth+1]) // block_x <= 364
-					begin
-						done = 1'b0;
-						diff_s = 9'd1;
-						//block_x = block_x + v_x;
-						//first = first + 9'd1;
-						//sec = sec + 9'd1;
-						//third = third + 9'd1;
-						//fourth = fourth + 9'd1;
-					end
-					else
-					begin
-						diff_s = 9'd0;
-					end
-					
-					CollisionBuf[first] = 3'b000;
-					CollisionBuf[sec] = 3'b000;
-					CollisionBuf[third] = 3'b000;
-					CollisionBuf[fourth] = 3'b000;
-					
-					first = first + diff_d + diff_s;
-					sec = sec + diff_d + diff_s;
-					third = third + diff_d + diff_s;
-					fourth = fourth + diff_d + diff_s;
-					
-					CollisionBuf[first] = 3'b001;
-					CollisionBuf[sec] = 3'b001;
-					CollisionBuf[third] = 3'b001;
-					CollisionBuf[fourth] = 3'b001;
-					
-					if (done)
-					begin
-						for (i = 1; i < 22; i = i + 1)			//detect filled lines
-						begin
-							filled = 1'b1;
-							for (j = 1; j < 15; j = j + 1)
-							begin
-								if (!CollisionBuf[j + i*16]) 
-									filled = 1'b0;
-							end
-							
-							if (filled)
-							begin
-								FilledRows[i] = 1'b1;
-							end
-						end//for i
-						
-						for (i = 2; i < 22; i = i + 1)		
-						begin
-							if (FilledRows[i])
-							begin
-								for (j = 1; j < 15; j = j + 1)
-								begin
-									CollisionBuf[j + i*16] = CollisionBuf[j + (i-1)*16];
-								end
-								
-								/*if (i == 1)
-								begin
-									FilledRows[i] = 1'b0;
-								end
-								else
-								begin*/
-									FilledRows[i-1] = 1'b1;
-									FilledRows[i] = 1'b0;
-								//end
-							end
-						end
-					end//if done
-					
-					
-				end
-			end
-			
-			if (new_block)
-			begin
-				done = 1'b0;
-				/*v_x = 5'd26;
-				block_x = x_in;
-				block_y = y_in;*/
-				first = 9'd8;
-				sec = 9'd9;
-				third = 9'd24;
-				fourth = 9'd25;
-			end
+			for (k = 0; k < 22; k = k + 1)
+				FilledRows[k] = FilledRows_new[k];
 		end
+	end
+	
+	/* FSM for the movement, completed row check and *
+	 * completed row delete */
+	always @(*)
+	begin
+		NextState = State;
+		first_new = first;
+		sec_new = sec;
+		third_new = third;
+		fourth_new = fourth;
+		diff_d = diff_d;
+		diff_s = diff_s;
+		new_d_row = del_row;
+		new_row = row;
+		new_col = col;
+		done = 1'b0;
+		check = 1'b0;
+		game_over = 1'b0;
+		for (i = 0; i < 23; i = i + 1)
+			for (j = 0; j < 16; j = j + 1)
+				CollisionBuf_new[i*16 + j] = CollisionBuf[i*16 + j];
+		
+		for (k = 0; k < 22; k = k + 1)
+			FilledRows_new[k] = FilledRows[k];
+			
+		case (State)		
+			/* First initialize every signal */
+			Start :
+				begin
+					//block_x = x_in;
+					//block_y = y_in;		
+					/*first1 = 9'd8;
+					sec1 = 9'd9;
+					third1 = 9'd23;
+					fourth1 = 9'd24;*/
+					filled = 1'b0;
+					done = 1'b0;
+					check = 1'b0;
+					game_over = 1'b0;
+					new_row = 5'd0;
+					new_col = 4'd1;
+					new_d_row = 5'd0;
+					diff_d = 9'b0;
+					diff_s = 9'b0;
+					/* Initialize the CollisionBuf */
+					for (i = 0; i < 23; i = i + 1)
+					begin
+						CollisionBuf_new[i*16] = 1'b1;
+						CollisionBuf_new[i*16 + 15] = 1;
+						for (j = 1; j < 15; j = j + 1)
+							if (i == 22)
+								CollisionBuf_new[i*16 + j] = 3'b111;
+							else
+								CollisionBuf_new[i*16 + j] = 3'b000;
+					end
+					/* Initialize the FilledRows */
+					for (i = 0; i < 22; i = i + 1)
+					begin
+						FilledRows_new[i] = 1'b0;
+					end			
+					NextState = Idle;
+				end
+			/* Idle state until a new block is created */
+			Idle :
+				begin
+					if (new_block)
+					begin
+						/*v_x = 5'd26;
+						block_x = x_in;
+						block_y = y_in;*/
+						first_new = 9'd8;
+						sec_new = 9'd9;
+						third_new = 9'd24;
+						fourth_new = 9'd25;
+					end
+
+					if (move)
+						NextState = BlockMove;
+				end
+			/* Movement of the blocks */
+			BlockMove :
+				begin
+					if (frame)
+					begin
+						if (DOWN && ((!CollisionBuf[sec+32] && !CollisionBuf[third+32] && !CollisionBuf[fourth+32]) || //block_y >= 485 && block_y < 521
+												(!CollisionBuf[third+32] && !CollisionBuf[fourth+32]) ||
+												(!CollisionBuf[first+32] && !CollisionBuf[third+32] && !CollisionBuf[fourth+32])) ||
+												(!CollisionBuf[fourth+32]))))
+						begin
+							diff_d = 9'd32;
+							check = 1'b0;
+						end
+						else if ((!CollisionBuf[sec+16] && !CollisionBuf[third+16] && !CollisionBuf[fourth+16]) || // block_y < 521
+										(!CollisionBuf[third+16] && !CollisionBuf[fourth+16]) ||
+										(!CollisionBuf[first+16] && !CollisionBuf[third+16] && !CollisionBuf[fourth+16]) ||
+										(!CollisionBuf[fourth+16]))
+						begin	
+							diff_d = 9'd16;
+							check = 1'b0;
+						end
+						else
+						begin
+							diff_d = 9'd0;
+							check = 1'b1;
+							/*block_y = block_y;
+							if (block_x == x_in && block_y == y_in) //detect game over
+								game_over = 1'b1;
+							else
+								game_over = 1'b0;*/
+						end
+						
+						if (LEFT && ((!CollisionBuf[first-1] && !CollisionBuf[third-1]) ||
+												(!CollisionBuf[first-1] && !CollisionBuf[sec-1] && !CollisionBuf[third-1]) ||
+												(!CollisionBuf[first-1] && !CollisionBuf[sec-1] && !CollisionBuf[third-1] && !CollisionBuf[fourth-1]) ||
+												(!CollisionBuf[first-1] && !CollisionBuf[fourth-1]))) // block_x >= 130
+						begin
+							diff_s = -9'd1;
+						end
+						else if (RIGHT && ((!CollisionBuf[sec+1] && !CollisionBuf[fourth+1]) ||
+															(!CollisionBuf[first+1] && !CollisionBuf[sec+1] && !CollisionBuf[fourth+1]) ||
+															(!CollisionBuf[first+1] && !CollisionBuf[sec+1] && !CollisionBuf[third+1] && !CollisionBuf[fourth+1]) ||
+															(!CollisionBuf[third+1] && !CollisionBuf[fourth+1]))) // block_x <= 364
+						begin
+							diff_s = 9'd1;
+						end
+						else
+						begin
+							diff_s = 9'd0;
+						end
+						
+						CollisionBuf_new[first] = 3'b000;
+						CollisionBuf_new[sec] = 3'b000;
+						CollisionBuf_new[third] = 3'b000;
+						CollisionBuf_new[fourth] = 3'b000;
+						
+						CollisionBuf_new[first+ diff_d + diff_s] = 3'b001;
+						CollisionBuf_new[sec + diff_d + diff_s] = 3'b001;
+						CollisionBuf_new[third + diff_d + diff_s] = 3'b001;
+						CollisionBuf_new[fourth + diff_d + diff_s] = 3'b001;
+						
+						first_new = first + diff_d + diff_s;
+						sec_new = sec + diff_d + diff_s;
+						third_new = third + diff_d + diff_s;
+						fourth_new = fourth + diff_d + diff_s;
+						
+						if (check)
+							NextState = DetectLines;
+						else 
+							NextState = BlockMove;
+					end
+				end
+			/* Find all filled rows */
+			DetectLines :
+				begin					
+					for (i = 0; i < 22; i = i + 1)			//detect filled lines
+					begin
+						filled = 1'b1;
+						for (j = 1; j < 15; j = j + 1)
+						begin
+							if (!CollisionBuf[j + i*16]) 
+								filled = 1'b0;
+						end
+								
+						FilledRows_new[i] = filled;
+					end//for i
+					
+					new_row = 5'd0;
+					new_col = 4'd1;
+					NextState = CheckRows;
+				end
+			/* Check if a row is completed */
+			CheckRows :
+				begin
+					if (row == 5'd21)
+					begin
+						if (FilledRows[row] == 1'b0)
+						begin
+							new_row = 5'd0;
+							new_col = 4'd1;
+							done = 1'b1;
+							NextState = Idle;
+						end
+						else
+						begin
+							FilledRows_new[row] = 1'b0;
+							new_d_row = row;
+							NextState = DeleteRow;
+						end
+					end
+					else
+					begin
+						if (FilledRows[row] == 1'b0)
+						begin
+							new_row = row + 5'd1;
+							NextState = CheckRows;
+						end
+						else
+						begin
+							FilledRows_new[row] = 1'b0;
+							new_d_row = row;
+							new_row = row + 5'd1;
+							NextState = DeleteRow;
+						end
+					end
+				end
+			DeleteRow :
+				begin
+					if (!del_row) //if at row 0 
+					begin
+						CollisionBuf_new[col] = 3'b000;
+						if (col == 4'd14) //if at last grid make zero and check rows again
+						begin
+							new_col = 4'd1;
+							NextState = CheckRows;
+						end
+						else
+						begin //make row 0 zero
+							new_col = col + 4'd1;
+							NextState = DeleteRow;
+						end
+					end
+					else //at any other row
+					begin
+						//up_row = del_row - 5'd1;
+						CollisionBuf_new[col + del_row*16] = CollisionBuf[col + (del_row-1)*16];
+						if (col == 4'd14) //if at last grid change the value and go to the smaller row
+						begin
+							new_col = 4'd1;
+							new_d_row = del_row - 5'd1;
+						end
+						else //at any other grid change the value and go to next grid
+						begin
+							new_col = col + 4'd1;
+						end
+						NextState = DeleteRow;
+					end
+				end
+			default:;
+		endcase
 	end
 	
 	always @(posedge vclk or posedge rst)
