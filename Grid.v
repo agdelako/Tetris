@@ -38,7 +38,7 @@ module Grid(
 // ====================================================================================
 // 								Parameters, Register, and Wires
 // ====================================================================================
-	reg		[2:0]			pixel_grid;
+	reg		[7:0]			pixel_grid;
 
 //  ===================================================================================
 // 							  				Implementation
@@ -48,11 +48,12 @@ module Grid(
 	begin
 			if (sw_grid)
 			begin
-				if ((hcount == 104 || hcount == 130 || hcount == 156 || hcount == 182 || 
+				if ((hcount >= 104 && hcount <= 468) && (vcount >= 17 && vcount <= 589) && 
+						(hcount == 104 || hcount == 130 || hcount == 156 || hcount == 182 || 
 						hcount == 208 || hcount == 234 || hcount == 260 || hcount == 286 || 
 						hcount == 312 || hcount == 338 || hcount == 364 || hcount == 390 || 
-						hcount == 416 || hcount == 442 || hcount == 468 ) &&
-						(vcount == 17 || vcount == 43 || vcount == 69 || vcount == 95 ||
+						hcount == 416 || hcount == 442 || hcount == 468 ||
+						vcount == 17 || vcount == 43 || vcount == 69 || vcount == 95 ||
 						vcount == 121 || vcount == 147 || vcount == 173 || vcount == 199 ||
 						vcount == 225 || vcount == 251 || vcount == 277 || vcount == 303 ||
 						vcount == 329 || vcount == 355 || vcount == 381 || vcount == 407 ||
