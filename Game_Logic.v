@@ -61,7 +61,6 @@ module Game_Logic (
 	reg		[1:0]		NextState;
 	reg		[1:0]		State;
 	reg						move;
-	reg						show;
 	reg						new_block;
 	
 	
@@ -79,6 +78,7 @@ module Game_Logic (
 	wire	[7:0]		pixel_board;
 	wire	[7:0]		frame_pixel;
 	wire					done;
+	wire					check;
 	wire					game_over;
 	wire					vsync;
 
@@ -104,8 +104,7 @@ module Game_Logic (
 	begin
 		pixel = pixel_board;
 		NextState = State;
-		move = 1'b0;
-		show = 1'b0;	
+		move = 1'b0;	
 		new_block = 1'b0;
 		x_in = X;
 		y_in = Y;
@@ -124,7 +123,7 @@ module Game_Logic (
 					pixel = pixel_board | frame_pixel ;//| pixel11;
 					if (frame)
 					begin
-						NextState = State_1;
+						NextState = Play;
 					end
 				end
 			Play :
@@ -132,11 +131,10 @@ module Game_Logic (
 					move = 1'b1;
 					pixel =  pixel | pixel_board | frame_pixel ;//| pixel11;
 					if (done)
-						NextState = State_2;
+						NextState = DisplayChanges;
 				end
 			DisplayChanges :
 				begin
-					show = 1'b1;
 					pixel = pixel_board | frame_pixel ;//| pixel11 | pixel21 | pixel31 | pixel41| pixel51 | pixel61 | pixel71;
 					if (frame)// && !game_over)
 					begin
@@ -164,6 +162,45 @@ module Game_Logic (
 				.hcount(hcount),
 				.vcount(vcount),
 				.pixel_board(pixel_board)
+	);
+	
+	//-------------------------------------------------------------------------
+	//		 							Calculate movement
+	//-------------------------------------------------------------------------
+	
+	BlockMovement moveInst(
+			.vclk(vclk),
+			.rst(rst),
+			.frame(frame),
+			.LEFT(LEFT),
+			.RIGHT(RIGHT),
+			.DOWN(DOWN),
+			.move(move),
+			.vsync(vsync),
+			.new_block(new_block),
+			.hcount(hcount),
+			.vcount(vcount),
+			.x_in(x_in),
+			.y_in(y_in),
+			.done(done),
+			.check(check),
+			.game_over(game_over),
+			//.block_x(block_x),
+			//.block_y(block_y),
+			.frame_pixel(frame_pixel)			
+	);
+	
+	//-------------------------------------------------------------------------
+	//		 							Calculate next tetromino
+	//-------------------------------------------------------------------------
+	
+	LFSR LFSRInst(
+			.vclk(vclk),
+			.rst(rst),
+			.LEFT(LEFT),
+			.RIGHT(RIGHT),
+			.DOWN(DOWN),
+			.new_block(new_block)
 	);
 	
 	//-------------------------------------------------------------------------
@@ -225,47 +262,6 @@ module Game_Logic (
 			.hcount(hcount),
 			.vcount(vcount),
 			.pixel71(pixel71)
-	);*/
-	
-	//-------------------------------------------------------------------------
-	//		 							Calculate movement
-	//-------------------------------------------------------------------------
-	
-	BlockMovement moveInst(
-			.vclk(vclk),
-			.rst(rst),
-			.frame(frame),
-			.LEFT(LEFT),
-			.RIGHT(RIGHT),
-			.DOWN(DOWN),
-			.move(move),
-			.vsync(vsync),
-			.new_block(new_block),
-			.hcount(hcount),
-			.vcount(vcount),
-			.x_in(x_in),
-			.y_in(y_in),
-			.done(done),
-			.game_over(game_over),
-			//.block_x(block_x),
-			//.block_y(block_y),
-			.frame_pixel(frame_pixel)			
-	);
-	
-	//-------------------------------------------------------------------------
-	//		 							Calculate the Frame Buffer
-	//-------------------------------------------------------------------------
-	/*Frame_Buffer frameBuffInst(
-			.vclk(vclk),
-			.rst(rst),
-			.done(done),
-			.show(show),
-			.pixel(pixel),
-			.hcount(hcount),
-			.vcount(vcount),
-			.vsync(vsync),
-			.next(next),
-			.frame_pixel(frame_pixel)
 	);*/
 
 endmodule
